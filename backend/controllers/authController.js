@@ -13,7 +13,9 @@ async function login(req, res) {
     client_id: client_id,
     scope: scope,
     redirect_uri: redirect_uri,
-    state: state
+    state: state,
+    // TODO: Remove this after testing
+    show_dialog: true
   }).toString()}`);
 }
 
@@ -103,6 +105,8 @@ async function registerPushToken(req, res) {
 }
 
 async function me(req, res){
+  console.log("me called, session:", req.session.userId);
+  console.log("req.session:", req.session);
   if (!req.session.userId) {
     return res.status(401).json({ error: "Not authenticated" });
 }
@@ -122,4 +126,14 @@ try {
   }
 }
 
-export { spotifyCallback, registerPushToken, login, me };
+async function logout(req, res) {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: "Failed to logout" });
+    }
+    res.clearCookie("connect.sid");
+    return res.json({ success: true });
+  });
+}
+
+export { spotifyCallback, registerPushToken, login, me, logout };

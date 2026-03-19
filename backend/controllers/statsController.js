@@ -66,14 +66,14 @@ async function syncRecentlyPlayed(req, res) {
   }
 }
 
-  async function getStats(req, res) {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-  
-    try {
-      const { rows } = await db.query(
-        `SELECT
+async function getStats(req, res) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `SELECT
           COUNT(*) as total_songs,
           SUM(duration_ms) / 60000 as total_minutes,
           MAX(played_at) as last_played,
@@ -86,20 +86,20 @@ async function syncRecentlyPlayed(req, res) {
          FROM plays
          WHERE user_id = $1
          AND played_at >= date_trunc('week', NOW())`,
-        [req.session.userId]
-      );
-  
-      return res.json(rows[0]);
-    } catch (err) {
-      console.error("Stats error:", err.message);
-      return res.status(500).json({ error: "Failed to fetch stats" });
-    }
-  }
+      [req.session.userId]
+    );
 
-  async function getLeaderboard(req, res) {
-    try {
-      const { rows } = await db.query(
-        `SELECT
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Stats error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch stats" });
+  }
+}
+
+async function getLeaderboard(req, res) {
+  try {
+    const { rows } = await db.query(
+      `SELECT
           u.id,
           u.display_name,
           u.avatar_url,
@@ -116,13 +116,200 @@ async function syncRecentlyPlayed(req, res) {
            AND p.played_at >= date_trunc('week', NOW())
          GROUP BY u.id
          ORDER BY total_minutes DESC`,
-      );
-  
-      return res.json(rows);
-    } catch (err) {
-      console.error("Leaderboard error:", err.message);
-      return res.status(500).json({ error: "Failed to fetch leaderboard" });
-    }
+    );
+
+    return res.json(rows);
+  } catch (err) {
+    console.error("Leaderboard error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch leaderboard" });
+  }
+}
+
+async function getUserProfile(req, res) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Not authenticated" });
   }
 
-  export { syncRecentlyPlayed, getStats, getLeaderboard };
+  const targetId = req.params.userId;
+  if (!targetId || typeof targetId !== "string") {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const [userRes, statsRes, artistsRes, songsRes, lastPlayedRes, rankRes] =
+      await Promise.all([
+        db.query(
+          `SELECT id, display_name, avatar_url FROM users WHERE id = $1`,
+          [targetId]
+        ),
+        db.query(
+          `SELECT
+              COUNT(*) as total_songs,
+              COALESCE(SUM(duration_ms) / 60000, 0) as total_minutes,
+              MAX(played_at) as last_played
+             FROM plays
+             WHERE user_id = $1
+             AND played_at >= date_trunc('week', NOW())`,
+          [targetId]
+        ),
+        db.query(
+          `SELECT artist_name, COUNT(*) as play_count
+             FROM plays
+             WHERE user_id = $1
+             AND played_at >= date_trunc('week', NOW())
+             GROUP BY artist_name
+             ORDER BY play_count DESC
+             LIMIT 10`,
+          [targetId]
+        ),
+        db.query(
+          `SELECT track_name, artist_name, MAX(track_id) as track_id, COUNT(*) as play_count
+             FROM plays
+             WHERE user_id = $1
+             AND played_at >= date_trunc('week', NOW())
+             GROUP BY track_name, artist_name
+             ORDER BY play_count DESC
+             LIMIT 50`,
+          [targetId]
+        ),
+        db.query(
+          `SELECT track_name, artist_name, track_id, played_at
+             FROM plays
+             WHERE user_id = $1
+             ORDER BY played_at DESC
+             LIMIT 1`,
+          [targetId]
+        ),
+        db.query(
+          `SELECT COUNT(*) + 1 AS rank
+             FROM (
+               SELECT u.id, COALESCE(SUM(p.duration_ms), 0) AS ms
+               FROM users u
+               LEFT JOIN plays p ON p.user_id = u.id
+                 AND p.played_at >= date_trunc('week', NOW())
+               GROUP BY u.id
+             ) ranked
+             WHERE ms > (
+               SELECT COALESCE(SUM(duration_ms), 0)
+               FROM plays
+               WHERE user_id = $1
+               AND played_at >= date_trunc('week', NOW())
+             )`,
+          [targetId]
+        ),
+      ]);
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    let topSongs = songsRes.rows;
+    let topArtists = artistsRes.rows;
+    let lastSong = lastPlayedRes.rows[0] ?? null;
+
+    try {
+      // get fresh user token
+      let userToken = req.session.access_token;
+      if (!userToken) {
+        const userRow = await db.query(
+          "SELECT refresh_token FROM users WHERE id = $1",
+          [req.session.userId]
+        );
+        userToken = await refreshAccessToken(userRow.rows[0].refresh_token);
+        req.session.access_token = userToken;
+      }
+
+      const trackIds = [
+        ...new Set(
+          [...topSongs.map((s) => s.track_id), lastSong?.track_id].filter(Boolean)
+        ),
+      ].slice(0, 50);
+
+      if (trackIds.length > 0) {
+        // fetch tracks individually (batch endpoint removed in Feb 2026)
+        const trackResults = await Promise.all(
+          trackIds.map((id) =>
+            axios
+              .get(`https://api.spotify.com/v1/tracks/${id}`, {
+                headers: { Authorization: `Bearer ${userToken}` },
+              })
+              .then((r) => r.data)
+              .catch(() => null)
+          )
+        );
+
+        const albumMap = {};
+        const artistIdMap = {};
+
+        for (const track of trackResults) {
+          if (!track) continue;
+          const imgs = track.album?.images ?? [];
+          albumMap[track.id] = imgs[imgs.length - 1]?.url ?? null;
+          if (track.artists?.[0]) {
+            artistIdMap[track.artists[0].name] = track.artists[0].id;
+          }
+        }
+
+        topSongs = topSongs.map((s) => ({
+          ...s,
+          image_url: albumMap[s.track_id] ?? null,
+        }));
+
+        if (lastSong?.track_id) {
+          lastSong = {
+            ...lastSong,
+            image_url: albumMap[lastSong.track_id] ?? null,
+          };
+        }
+
+        // fetch artists individually (batch endpoint removed in Feb 2026)
+        const artistIds = topArtists
+          .map((a) => artistIdMap[a.artist_name])
+          .filter(Boolean);
+
+        if (artistIds.length > 0) {
+          const artistResults = await Promise.all(
+            artistIds.map((id) =>
+              axios
+                .get(`https://api.spotify.com/v1/artists/${id}`, {
+                  headers: { Authorization: `Bearer ${userToken}` },
+                })
+                .then((r) => r.data)
+                .catch(() => null)
+            )
+          );
+
+          const artistImgMap = {};
+          for (const artist of artistResults) {
+            if (!artist) continue;
+            const imgs = artist.images ?? [];
+            artistImgMap[artist.id] = imgs[imgs.length - 1]?.url ?? null;
+          }
+
+          topArtists = topArtists.map((a) => ({
+            ...a,
+            image_url: artistImgMap[artistIdMap[a.artist_name]] ?? null,
+          }));
+        }
+      }
+    } catch (spotifyErr) {
+      console.error("Spotify image fetch error:", spotifyErr.message);
+      console.error("Status:", spotifyErr.response?.status);
+      console.error("Body:", JSON.stringify(spotifyErr.response?.data, null, 2));
+    }
+
+    return res.json({
+      user: userRes.rows[0],
+      stats: statsRes.rows[0],
+      rank: Number(rankRes.rows[0].rank),
+      top_artists: topArtists,
+      top_songs: topSongs,
+      last_played_song: lastSong,
+    });
+  } catch (err) {
+    console.error("getUserProfile error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch user profile" });
+  }
+}
+
+export { syncRecentlyPlayed, getStats, getLeaderboard, getUserProfile };
