@@ -125,7 +125,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className="text-xl font-bold"
             style={{ color: theme.text.primary, letterSpacing: "-0.5px" }}
           >
-            WaveMates
+            Chartify
           </span>
         </div>
 
@@ -233,7 +233,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           className="font-bold text-lg"
           style={{ color: theme.text.primary, letterSpacing: "-0.5px" }}
         >
-          WaveMates
+          Chartify
         </span>
         <div className="ml-auto">
           {user.avatar_url ? (

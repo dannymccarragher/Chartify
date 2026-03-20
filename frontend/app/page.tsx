@@ -105,7 +105,7 @@ export default function LandingPage() {
           className="text-xl font-bold"
           style={{ color: theme.text.primary, letterSpacing: "-0.5px" }}
         >
-          WaveMates
+          Chartify
         </span>
       </nav>
 
