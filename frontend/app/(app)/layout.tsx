@@ -144,7 +144,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Nav links */}
         <nav className="flex-1 px-3 flex flex-col gap-0.5">
           {navItems.map(({ href, label, Icon }) => {
-            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+            const active =
+              href === "/dashboard"
+                ? pathname === "/dashboard" || pathname === `/profile/${user.id}`
+                : pathname.startsWith(href);
             return (
               <Link
                 key={href}
@@ -281,7 +284,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }}
       >
         {navItems.map(({ href, label, Icon }) => {
-          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+          const active =
+            href === "/dashboard"
+              ? pathname === "/dashboard" || pathname === `/profile/${user.id}`
+              : pathname.startsWith(href);
           return (
             <Link
               key={href}

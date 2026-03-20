@@ -6,8 +6,6 @@ import { theme } from "@/constants/theme";
 
 const API = "http://127.0.0.1:5000";
 
-const medals = ["🥇", "🥈", "🥉"];
-const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -79,88 +77,6 @@ export default function LeaderboardPage() {
         />
       </div>
 
-      {/* Top 3 podium */}
-      {!search && leaderboard.length >= 3 && (
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {[1, 0, 2].map((origIdx) => {
-            const u = leaderboard[origIdx];
-            const isYou = u.id === userId;
-            return (
-              <Link
-                key={u.id}
-                href={`/profile/${u.id}`}
-                className="flex flex-col items-center gap-2 p-4 rounded-2xl text-center"
-                style={{
-                  background: isYou ? "rgba(162,89,255,0.08)" : theme.bg.surface,
-                  border: `1px solid ${isYou ? theme.accent.purple : origIdx === 0 ? "rgba(255,215,0,0.2)" : theme.border.subtle}`,
-                  textDecoration: "none",
-                  order: origIdx === 0 ? -1 : origIdx === 1 ? 0 : 1,
-                  transition: "background 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = isYou
-                    ? "rgba(162,89,255,0.14)"
-                    : theme.bg.elevated)
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = isYou
-                    ? "rgba(162,89,255,0.08)"
-                    : theme.bg.surface)
-                }
-              >
-                <span style={{ fontSize: origIdx === 0 ? 28 : 22 }}>{medals[origIdx]}</span>
-                {u.avatar_url ? (
-                  <img
-                    src={u.avatar_url}
-                    alt={u.display_name}
-                    className="rounded-full object-cover"
-                    style={{
-                      width: origIdx === 0 ? 56 : 44,
-                      height: origIdx === 0 ? 56 : 44,
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="rounded-full flex items-center justify-center font-bold"
-                    style={{
-                      width: origIdx === 0 ? 56 : 44,
-                      height: origIdx === 0 ? 56 : 44,
-                      background: theme.bg.highlight,
-                      color: theme.text.secondary,
-                      fontSize: origIdx === 0 ? 20 : 16,
-                    }}
-                  >
-                    {u.display_name?.[0]?.toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <p
-                    className="text-sm font-semibold truncate"
-                    style={{
-                      color: origIdx === 0 ? medalColors[0] : theme.text.primary,
-                      maxWidth: 100,
-                    }}
-                  >
-                    {u.display_name}
-                    {isYou && (
-                      <span
-                        className="ml-1 text-xs px-1 py-0.5 rounded-full"
-                        style={{ background: "rgba(162,89,255,0.2)", color: theme.accent.purple }}
-                      >
-                        you
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: theme.text.muted }}>
-                    {Math.round(u.total_minutes ?? 0)} min
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
       {/* Full list */}
       {filtered.length === 0 ? (
         <p className="text-center py-12" style={{ color: theme.text.muted }}>
@@ -203,14 +119,10 @@ export default function LeaderboardPage() {
               >
                 {/* Rank */}
                 <span
-                  className="w-7 text-center flex-shrink-0"
-                  style={{
-                    fontSize: origIdx < 3 ? 18 : 13,
-                    color: origIdx < 3 ? undefined : theme.text.muted,
-                    fontWeight: origIdx < 3 ? undefined : 600,
-                  }}
+                  className="w-7 text-center text-sm font-semibold flex-shrink-0"
+                  style={{ color: theme.text.muted }}
                 >
-                  {origIdx < 3 ? medals[origIdx] : origIdx + 1}
+                  {origIdx + 1}
                 </span>
 
                 {/* Avatar */}
