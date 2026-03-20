@@ -252,17 +252,16 @@ async function getUserProfile(req, res) {
         // fetch uncached tracks from Spotify
         const uncachedTrackIds = trackIds.filter((id) => !cachedTrackIds.has(id));
         for (const id of uncachedTrackIds) {
-          // const track = await axios
-          //   .get(`https://api.spotify.com/v1/tracks/${id}`, {
-          //     headers: { Authorization: `Bearer ${userToken}` },
-          //   })
-          //   .then((r) => r.data)
-          //   .catch((err) => {
-          //     const retryAfter = err.response?.headers?.["retry-after"];
-          //     console.error(`Track ${id} failed:`, err.response?.status, `retry after: ${retryAfter}s`);
-          //     return null;
-          //   });
-          const track = null; // axios call commented out for cache testing
+          const track = await axios
+            .get(`https://api.spotify.com/v1/tracks/${id}`, {
+              headers: { Authorization: `Bearer ${userToken}` },
+            })
+            .then((r) => r.data)
+            .catch((err) => {
+              const retryAfter = err.response?.headers?.["retry-after"];
+              console.error(`Track ${id} failed:`, err.response?.status, `retry after: ${retryAfter}s`);
+              return null;
+            });
 
           if (track) {
             const imgs = track.album?.images ?? [];
