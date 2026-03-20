@@ -7,6 +7,12 @@ import { theme } from "@/constants/theme";
 
 const API = "http://127.0.0.1:5000";
 
+const RANGES = [
+  { key: "4weeks", label: "4 Weeks" },
+  { key: "6months", label: "6 Months" },
+  { key: "1year", label: "1 Year" },
+];
+
 function timeAgo(dateStr) {
   if (!dateStr) return "—";
   const date = new Date(dateStr);
@@ -105,6 +111,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [topRange, setTopRange] = useState("1week");
+  const [topTracks, setTopTracks] = useState([]);
+  const [topTracksLoading, setTopTracksLoading] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -117,6 +126,15 @@ export default function ProfilePage() {
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
   }, [userId]);
+
+  useEffect(() => {
+    setTopTracksLoading(true);
+    fetch(`${API}/stats/user/top/${topRange}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setTopTracks)
+      .catch(() => setTopTracks([]))
+      .finally(() => setTopTracksLoading(false));
+  }, [topRange]);
 
   if (loading) {
     return (
@@ -279,6 +297,80 @@ export default function ProfilePage() {
           </div>
         </section>
       )}
+
+      {/* Spotify Top Tracks */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <SectionTitle>Top Tracks</SectionTitle>
+          <div className="flex gap-1.5 mb-3">
+            {RANGES.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setTopRange(r.key)}
+                className="text-xs px-3 py-1.5 rounded-full transition-all"
+                style={{
+                  background: topRange === r.key ? theme.accent.purple : theme.bg.elevated,
+                  color: topRange === r.key ? "#fff" : theme.text.muted,
+                  border: `1px solid ${topRange === r.key ? theme.accent.purple : theme.border.subtle}`,
+                  cursor: "pointer",
+                  fontWeight: topRange === r.key ? 600 : 400,
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {topTracksLoading ? (
+          <div className="rounded-2xl p-6 text-center" style={{ background: theme.bg.surface, border: `1px solid ${theme.border.subtle}` }}>
+            <p style={{ color: theme.text.muted }}>Loading…</p>
+          </div>
+        ) : topTracks.length === 0 ? (
+          <div className="rounded-2xl p-6 text-center" style={{ background: theme.bg.surface, border: `1px solid ${theme.border.subtle}` }}>
+            <p style={{ color: theme.text.muted }}>No data for this range.</p>
+          </div>
+        ) : (
+          <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${theme.border.subtle}` }}>
+            {topTracks.slice(0, 50).map((track, i) => {
+              const imgs = track.album?.images ?? [];
+              const imageUrl = imgs[imgs.length - 1]?.url ?? null;
+              return (
+                <div
+                  key={track.id}
+                  className="flex items-center gap-3 px-4 py-3.5"
+                  style={{
+                    background: theme.bg.surface,
+                    borderTop: i > 0 ? `1px solid ${theme.border.subtle}` : "none",
+                  }}
+                >
+                  <span className="text-sm w-5 text-right flex-shrink-0" style={{ color: theme.text.muted }}>
+                    {i + 1}
+                  </span>
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={track.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                  ) : (
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: theme.bg.highlight, color: theme.text.muted }}
+                    >
+                      ♪
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: theme.text.primary }}>
+                      {track.name}
+                    </p>
+                    <p className="text-xs truncate" style={{ color: theme.text.muted }}>
+                      {track.artists?.map((a) => a.name).join(", ")}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {/* Top songs */}
       {top_songs?.length > 0 && (
