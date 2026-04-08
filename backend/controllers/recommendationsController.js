@@ -21,30 +21,21 @@ export async function getAIRecommendations(req, res) {
       req.session.access_token = userToken;
     }
 
-    const [topSongsRes, topArtistsRes] = await Promise.all([
-      db.query(
-        `SELECT track_name, artist_name, COUNT(*) as play_count
-         FROM plays
-         WHERE user_id = $1
-         AND played_at >= date_trunc('week', NOW())
-         GROUP BY track_name, artist_name
-         ORDER BY play_count DESC
-         LIMIT 20`,
-        [req.session.userId]
+    const [topTracksRes, topArtistsRes] = await Promise.all([
+      axios.get(
+        `https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=20`,
+        { headers: { Authorization: `Bearer ${userToken}` } }
       ),
-      db.query(
-        `SELECT artist_name, COUNT(*) as play_count
-         FROM plays
-         WHERE user_id = $1
-         AND played_at >= date_trunc('week', NOW())
-         GROUP BY artist_name
-         ORDER BY play_count DESC
-         LIMIT 10`,
-        [req.session.userId]
+      axios.get(
+        `https://api.spotify.com/v1/me/top/artists?time_range=short_term&limit=10`,
+        { headers: { Authorization: `Bearer ${userToken}` } }
       ),
     ]);
 
-    const trackIds = topSongsRes.rows.map((s) => s.track_id).filter(Boolean).slice(0, 20).join(",");
+    const topTracks = topTracksRes.data.items;
+    const topArtists = topArtistsRes.data.items;
+
+    const trackIds = topTracks.map((t) => t.id).join(",");
     let audioSummary = "";
 
     if (trackIds) {
@@ -59,11 +50,11 @@ export async function getAIRecommendations(req, res) {
       }
     }
 
-    const topArtists = topArtistsRes.rows.map((a) => a.artist_name).join(", ");
-    const exclusionList = topSongsRes.rows.map((s) => `${s.track_name} by ${s.artist_name}`).join(", ");
+    const artistNames = topArtists.map((a) => a.name).join(", ");
+    const exclusionList = topTracks.map((t) => `${t.name} by ${t.artists[0]?.name}`).join(", ");
 
-    const prompt = `User's taste profile this week:
-- Top artists: ${topArtists}
+    const prompt = `User's taste profile (recent top tracks):
+- Top artists: ${artistNames}
 - Audio fingerprint: ${audioSummary || "unavailable"}
 
 Do NOT recommend: ${exclusionList}

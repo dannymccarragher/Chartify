@@ -81,7 +81,6 @@ function LogOutIcon() {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", Icon: HomeIcon },
-  { href: "/leaderboard", label: "Leaderboard", Icon: TrophyIcon },
   { href: "/shows", label: "Shows", Icon: CalendarIcon },
   { href: "/artists", label: "Artists", Icon: MusicIcon },
   { href: "/friends", label: "Friends", Icon: UsersIcon },

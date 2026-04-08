@@ -22,11 +22,6 @@ const features = [
     desc: "Songs played, minutes listened, and your top artists — refreshed every week.",
   },
   {
-    icon: <Trophy />,
-    title: "Leaderboard",
-    desc: "Compete with friends. See who's been listening the most this week.",
-  },
-  {
     icon: <Guitar />,
     title: "Concert Discovery",
     desc: "Follow artists and find upcoming shows near you, powered by Ticketmaster.",

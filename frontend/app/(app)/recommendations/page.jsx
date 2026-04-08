@@ -133,7 +133,7 @@ export default function RecommendationsPage() {
           </h1>
         </div>
         <p className="text-sm" style={{ color: theme.text.muted }}>
-          Powered by AI. Personalised picks based on your listening data this week.
+          Powered by AI. Personalized picks based on your listening data this week.
         </p>
       </div>
 

@@ -8,7 +8,6 @@ import session from "express-session";
 import statsRoutes from "./routes/stats.js";
 import friendRoutes from "./routes/friends.js";
 import recommendationsRoutes from "./routes/recommendations.js";
-import { startCronJobs } from "./cron/jobs.js";
 const app = express();
 
 app.use(cors({
@@ -41,9 +40,6 @@ app.use("/stats", statsRoutes);
 app.use("/friends", friendRoutes);
 app.use("/", recommendationsRoutes);
 
-// Start background jobs
-// Add back for prod, not for local dev
-// startCronJobs();
 
 
 const PORT = process.env.PORT || 5000;
